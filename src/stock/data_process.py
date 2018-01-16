@@ -18,10 +18,25 @@ def get_k_data():
     _fix_p_change(st_df)
     return st_df
 
+def add_other_feature(st_df):
+
+    kdj_df = ZB.kdj(st_df)
+
+    kdj_df['k_dir'] = 0
+    up1 = kdj_df['kdj_k'] > kdj_df['kdj_k'].shift(1)
+
+    up2 = (kdj_df['kdj_k'] == kdj_df['kdj_k'].shift(1)) & (kdj_df['kdj_k'] > kdj_df['kdj_j'])
+
+    kdj_df.ix[up1, 'k_dir'] = 1
+    kdj_df.ix[up2, 'k_dir'] = 1
+
+    st_df['kdj_k_dir'] = kdj_df['k_dir']
+    st_df['kdj_k'] = kdj_df['kdj_k']
 
 def process_data(st_df):
     vol_df = ZB.vol(st_df)
 
+    add_other_feature(st_df)
     st_df['p_change2'] = st_df['p_change'].rolling(center=False, min_periods=1, window=2).sum()
     st_df['p_change5'] = st_df['p_change'].rolling(center=False, min_periods=1, window=5).sum()
     st_df['p_change10'] = st_df['p_change'].rolling(center=False, min_periods=1, window=10).sum()
@@ -35,7 +50,7 @@ def process_data(st_df):
 
     st_df['target'] = 'D'
 
-    st_df.ix[(st_df['next_p_change2']< -10), 'target'] = 'A'
+    st_df.ix[(st_df['next_p_change2'] < -10), 'target'] = 'A'
     st_df.ix[(st_df['next_p_change2'] >= -10) & (st_df['next_p_change2'] < -5), 'target'] = 'B'
     st_df.ix[(st_df['next_p_change2'] >= -5) & (st_df['next_p_change2'] < -2), 'target'] = 'C'
     st_df.ix[(st_df['next_p_change2'] >= -2) & (st_df['next_p_change2'] <= 0), 'target'] = 'D'
@@ -45,7 +60,10 @@ def process_data(st_df):
     st_df.ix[(st_df['next_p_change2'] > 5) & (st_df['next_p_change2'] <= 10), 'target'] = 'G'
     st_df.ix[(st_df['next_p_change2'] > 10), 'target'] = 'H'
 
-    names = ['p_change', 'p_change2', 'p_change5', 'p_change10', 'vma3_10', 'vma5_10', 'target']
+    names = ['p_change', 'p_change2', 'p_change5', 'p_change10',
+             'vma3_10', 'vma5_10',
+             'kdj_k', 'kdj_k_dir',
+             'target']
     return st_df.ix[:, names]
 
 

@@ -1,5 +1,7 @@
 # coding=utf-8
 from math import sqrt
+
+import sklearn
 from numpy import concatenate
 from matplotlib import pyplot
 from pandas import read_csv
@@ -11,11 +13,9 @@ from sklearn.metrics import mean_squared_error
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import LSTM
-
-
-
 from stock import data_process
 
+N = 8
 # integer encode direction
 encoder = LabelEncoder()
 
@@ -54,7 +54,8 @@ def fix_values():
     dataset = data_process.process_data(st_df)
     values = dataset.values
 
-    values[:, 6] = encoder.fit_transform(values[:, 6])
+    values[:, N] = encoder.fit_transform(values[:, N])
+
 
     # ensure all data is float
     values = values.astype('float32')
@@ -66,7 +67,7 @@ def fix_values():
     reframed = series_to_supervised(scaled, 1, 1)
 
     # drop columns we don't want to predict
-    reframed.drop(reframed.columns[[6, 7, 8, 9, 10, 11, 12]], axis=1, inplace=True)
+    reframed.drop(reframed.columns[list(range(N, N * 2 + 1))], axis=1, inplace=True)
 
     print(reframed.head())
 
@@ -100,7 +101,7 @@ def train(train_X, train_y, test_X, test_y):
     model.add(Dense(1))
     model.compile(loss='mae', optimizer='adam')
     # fit network
-    history = model.fit(train_X, train_y, epochs=30, batch_size=72, validation_data=(test_X, test_y), verbose=2,
+    history = model.fit(train_X, train_y, epochs=1500, batch_size=30, validation_data=(test_X, test_y), verbose=2,
                         shuffle=False)
 
     return model, history
@@ -111,31 +112,17 @@ if __name__ == '__main__':
     values = fix_values()
     train_X, train_y, test_X, test_y = split_train_test_data(values)
     model, history = train(train_X, train_y, test_X, test_y)
+
+
     # plot history
     pyplot.plot(history.history['loss'], label='train')
     pyplot.plot(history.history['val_loss'], label='test')
     pyplot.legend()
+    pyplot.show()
+
 
 
     # make a prediction
     yhat = model.predict(test_X)
     test_X = test_X.reshape((test_X.shape[0], test_X.shape[2]))
     test_y = test_y.reshape((test_y.shape[0], 1))
-
-    # invert scaling for forecast
-    # inv_yhat = concatenate((yhat, test_X[:, 1:]), axis=1)
-    inv_yhat = concatenate((test_X, yhat), axis=1)
-    inv_yhat = scaler.inverse_transform(inv_yhat)
-
-    inv_yhat = inv_yhat[:, -1]
-
-    # invert scaling for actual
-    pp = concatenate((test_X, test_y), axis=1)
-    inv_y = scaler.inverse_transform(pp)
-    inv_y = inv_y[:, -1]
-
-    # calculate RMSE
-    rmse = sqrt(mean_squared_error(inv_y, inv_yhat))
-    print('Test RMSE: %.3f' % rmse)
-
-    pyplot.show()
